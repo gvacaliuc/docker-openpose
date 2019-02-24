@@ -1,0 +1,56 @@
+# vi:ft=Dockerfile
+
+# To run the openpose from this image, use the following command:
+#`docker run -t -i --net=host -e DISPLAY --device=/dev/video0 --runtime=nvidia -v $HOME/.Xauthority:/home/developer/.Xauthority --rm 721466574657.dkr.ecr.us-east-1.amazonaws.com/openpose:latest`:
+#
+# To build a new version of this image: `docker build -t 721466574657.dkr.ecr.us-east-1.amazonaws.com/openpose:latest .`
+# To publish it" `docker push 721466574657.dkr.ecr.us-east-1.amazonaws.com/openpose:latest`
+# For additional command line params: https://github.com/CMU-Perceptual-Computing-Lab/openpose/blob/master/doc/demo_overview.md
+
+# FROM nvidia/cuda:9.2-cudnn7-devel-ubuntu16.04
+FROM ubuntu:16.04
+
+RUN apt-get update && \
+        apt-get install -y software-properties-common vim && \
+        add-apt-repository ppa:jonathonf/python-3.6
+
+RUN apt-get update -y && \
+    apt-get install -y \
+        build-essential \
+        python3.6 \
+        python3.6-dev \
+        python3-pip \ 
+        git \
+        wget && \
+    rm -rf /var/lib/apt/lists/*
+
+RUN python3.6 -m pip install pip --upgrade && \
+    python3.6 -m pip install wheel
+
+RUN apt-get update && \
+    apt-get install -y \
+    cmake \
+    libatlas-base-dev \
+    libprotobuf-dev \
+    libleveldb-dev \
+    libsnappy-dev \
+    libhdf5-serial-dev \
+    protobuf-compiler \
+    libgflags-dev \
+    libopencv-dev \
+    libgoogle-glog-dev \
+    liblmdb-dev \
+    libboost-all-dev && \ 
+    ln -sf /usr/bin/pip3 /usr/bin/pip && \
+    ln -sf /usr/bin/python3.6 /usr/bin/python && \
+    rm -rf /var/lib/apt/lists/*
+
+RUN python3.6 -m pip install numpy protobuf
+RUN git clone https://github.com/CMU-Perceptual-Computing-Lab/openpose /openpose
+
+WORKDIR /openpose 
+# NOTE: Since the GPU is not availble via the --runtime flag like it is when the container is run
+# we must specify the architetures to build here, else it tries to build the sm_20 arch which CUDA 9 does not support.
+RUN mkdir build && cd build && cmake -DGPU_MODE=CPU_ONLY .. && make -j`nproc` && make install
+ENTRYPOINT ["./build/examples/openpose/openpose.bin"]
+CMD ["--face","--hand"]
